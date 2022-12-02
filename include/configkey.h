@@ -3,6 +3,7 @@
 #include <qjsonobject.h>
 #include <qjsonarray.h>
 #include <qjsondocument.h>
+#include <qvariant.h>
 
 namespace QJsonUtil {
 
