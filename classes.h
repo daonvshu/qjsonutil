@@ -41,7 +41,9 @@ struct Classes : JsonDumpInterface {
 
     CONFIG_KEY(QList<Student>, students);
 
+    CONFIG_KEY(QList<int>, types);
+
     QList<JsonReadInterface *> prop() override {
-        return {&name, &room, &courses, &teacher, &students};
+        return {&name, &room, &courses, &teacher, &students, &types };
     }
 };

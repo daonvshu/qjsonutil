@@ -13,6 +13,7 @@ private slots:
     "name": "class1",
     "room": 1,
     "courses": ["math", "english", "physics", "chemistry", "biology"],
+    "types": [0, 1, 2],
     "teacher": {
         "name": "Tony",
         "score": 99.9
@@ -47,6 +48,11 @@ private slots:
             //read
             auto aliceName = classes.students().first().name();
             QCOMPARE(aliceName, "Alice");
+
+            auto types = classes.types();
+            QList<int> expectTypes = {0, 1, 2};
+            QCOMPARE(types, expectTypes);
+
             //write
             classes.teacher().score = 98.1;
 
