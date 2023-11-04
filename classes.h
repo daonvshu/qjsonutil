@@ -29,6 +29,17 @@ struct Teacher : JsonDumpInterface {
     }
 };
 
+struct CourseInfo : JsonDumpInterface {
+
+    CONFIG_KEY(QString, name);
+
+    CONFIG_KEY(int, index);
+
+    QList<JsonReadInterface *> prop() override {
+        return { &name, &index };
+    }
+};
+
 struct Classes : JsonDumpInterface {
 
     CONFIG_KEY(QString, name);
@@ -43,7 +54,9 @@ struct Classes : JsonDumpInterface {
 
     CONFIG_KEY(QList<int>, types);
 
+    CONFIG_KEY(QList<QList<CourseInfo>>, nestedValues);
+
     QList<JsonReadInterface *> prop() override {
-        return {&name, &room, &courses, &teacher, &students, &types };
+        return {&name, &room, &courses, &teacher, &students, &types, &nestedValues };
     }
 };

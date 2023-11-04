@@ -161,10 +161,10 @@ namespace QJsonUtil {
         //容器类型
         template<typename I, typename K>
         static void fromJsonValue(I& tagValue, const QJsonValue& value, JsonIdentity<QList<K>>) {
-            tagValue = T();
+            tagValue = QList<K>();
             auto values = value.toArray();
             for (const auto& v : values) {
-                typename IteratorType<T>::type temp;
+                typename IteratorType<QList<K>>::type temp;
                 fromJsonValue(temp, v, JsonIdentity<ValueType<K>>());
                 tagValue.append(temp);
             }
@@ -184,24 +184,7 @@ namespace QJsonUtil {
 
         template<typename K>
         JsonReadInterface* findByRouter(const QStringList& router, JsonIdentity<QList<K>>) {
-            if (router.isEmpty()) {
-                return nullptr;
-            }
-
-            bool ok;
-            int arrayIndex = router.first().toInt(&ok);
-            if (!ok) {
-                return nullptr;
-            }
-
-            if (arrayIndex < 0 || arrayIndex >= jsonValue.size()) {
-                return nullptr;
-            }
-
-            if (router.length() == 1) {
-                return readerCaster<K>(&jsonValue[arrayIndex]);
-            }
-            return findNextRouter<K>(jsonValue[arrayIndex], router.mid(1));
+            return findNextRouter(jsonValue, router, JsonIdentity<QList<K>>());
         }
 
         template<typename K>
@@ -220,8 +203,35 @@ namespace QJsonUtil {
         }
 
         template<typename K>
-        static JsonReadInterface* findNextRouter(typename std::enable_if<!std::is_base_of<JsonDumpInterface, K>::value, K>::type&, const QStringList&) {
+        static JsonReadInterface* findNextRouter(typename std::enable_if<!std::is_base_of<JsonDumpInterface, K>::value, K>::type& value, const QStringList& router) {
+            return findNextRouter(value, router, JsonIdentity<K>());
+        }
+
+        template<typename K>
+        static JsonReadInterface* findNextRouter(K&, const QStringList&, JsonIdentity<K>) {
             return nullptr;
+        }
+
+        template<typename K>
+        static JsonReadInterface* findNextRouter(QList<K>& value, const QStringList& router, JsonIdentity<QList<K>>) {
+            if (router.isEmpty()) {
+                return nullptr;
+            }
+
+            bool ok;
+            int arrayIndex = router.first().toInt(&ok);
+            if (!ok) {
+                return nullptr;
+            }
+
+            if (arrayIndex < 0 || arrayIndex >= value.size()) {
+                return nullptr;
+            }
+
+            if (router.length() == 1) {
+                return readerCaster<K>(&value[arrayIndex]);
+            }
+            return findNextRouter<K>(value[arrayIndex], router.mid(1));
         }
     };
 

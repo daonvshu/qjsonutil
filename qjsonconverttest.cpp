@@ -14,6 +14,18 @@ private slots:
     "room": 1,
     "courses": ["math", "english", "physics", "chemistry", "biology"],
     "types": [0, 1, 2],
+    "nestedValues": [
+        [
+            {
+                "name": "math",
+                "index": 0
+            },
+            {
+                "name": "english",
+                "index": 1
+            }
+        ]
+    ],
     "teacher": {
         "name": "Tony",
         "score": 99.9
@@ -71,6 +83,9 @@ private slots:
 
             ConfigKey<QStringList>* aliceAdept = classes.findByRouter<QStringList>("students.0.adept");
             QCOMPARE((*aliceAdept)(), QStringList() << "math" << "english");
+
+            ConfigKey<QString>* nestedValue = classes.findByRouter<QString>("nestedValues.0.0.name");
+            QCOMPARE((*nestedValue)(), "math");
         }
     }
 };
