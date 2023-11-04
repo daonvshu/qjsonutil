@@ -69,22 +69,22 @@ private slots:
             classes.teacher().score = 98.1;
 
             //read by string
-            ConfigKey<int>* room = classes.findByRouter<int>("room");
+            DataKey<int>* room = classes.findByRouter<int>("room");
             QCOMPARE((*room)(), 1);
 
-            ConfigKey<QString>* teacherName = classes.findByRouter<QString>("teacher.name");
+            DataKey<QString>* teacherName = classes.findByRouter<QString>("teacher.name");
             QCOMPARE((*teacherName)(), "Tony");
 
-            ConfigKey<QList<Student>>* students = classes.findByRouter<QList<Student>>("students");
+            DataKey<QList<Student>>* students = classes.findByRouter<QList<Student>>("students");
             QCOMPARE((*students)().size(), 2);
 
-            ConfigKey<int>* aliceAge = classes.findByRouter<int>("students.0.age");
+            DataKey<int>* aliceAge = classes.findByRouter<int>("students.0.age");
             QCOMPARE((*aliceAge)(), 12);
 
-            ConfigKey<QStringList>* aliceAdept = classes.findByRouter<QStringList>("students.0.adept");
+            DataKey<QStringList>* aliceAdept = classes.findByRouter<QStringList>("students.0.adept");
             QCOMPARE((*aliceAdept)(), QStringList() << "math" << "english");
 
-            ConfigKey<QString>* nestedValue = classes.findByRouter<QString>("nestedValues.0.0.name");
+            DataKey<QString>* nestedValue = classes.findByRouter<QString>("nestedValues.0.0.name");
             QCOMPARE((*nestedValue)(), "math");
         }
     }

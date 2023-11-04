@@ -1,62 +1,62 @@
-#include "include/configkey.h"
+#include "include/datakey.h"
 
-using namespace QJsonUtil;
+using namespace QDataUtil;
 
-struct Student : JsonDumpInterface {
+struct Student : DataDumpInterface {
 
-    CONFIG_KEY(QString, name);
+    DATA_KEY(QString, name);
 
-    CONFIG_KEY(int, age);
+    DATA_KEY(int, age);
 
     //字段与key名称不一致时不使用宏
-    ConfigKey<double> scoreAvg{"score_avg"};
+    DataKey<double> scoreAvg{"score_avg"};
 
-    CONFIG_KEY(QStringList, adept);
+    DATA_KEY(QStringList, adept);
 
-    QList<JsonReadInterface *> prop() override {
+    QList<DataReadInterface *> prop() override {
         return {&name, &age, &scoreAvg, &adept};
     }
 };
 
-struct Teacher : JsonDumpInterface {
+struct Teacher : DataDumpInterface {
 
-    CONFIG_KEY(QString, name);
+    DATA_KEY(QString, name);
 
-    CONFIG_KEY(double, score);
+    DATA_KEY(double, score);
 
-    QList<JsonReadInterface *> prop() override {
+    QList<DataReadInterface *> prop() override {
         return {&name, &score};
     }
 };
 
-struct CourseInfo : JsonDumpInterface {
+struct CourseInfo : DataDumpInterface {
 
-    CONFIG_KEY(QString, name);
+    DATA_KEY(QString, name);
 
-    CONFIG_KEY(int, index);
+    DATA_KEY(int, index);
 
-    QList<JsonReadInterface *> prop() override {
+    QList<DataReadInterface *> prop() override {
         return { &name, &index };
     }
 };
 
-struct Classes : JsonDumpInterface {
+struct Classes : DataDumpInterface {
 
-    CONFIG_KEY(QString, name);
+    DATA_KEY(QString, name);
 
-    CONFIG_KEY(int, room);
+    DATA_KEY(int, room);
 
-    CONFIG_KEY(QStringList, courses);
+    DATA_KEY(QStringList, courses);
 
-    CONFIG_KEY(Teacher, teacher);
+    DATA_KEY(Teacher, teacher);
 
-    CONFIG_KEY(QList<Student>, students);
+    DATA_KEY(QList<Student>, students);
 
-    CONFIG_KEY(QList<int>, types);
+    DATA_KEY(QList<int>, types);
 
-    CONFIG_KEY(QList<QList<CourseInfo>>, nestedValues);
+    DATA_KEY(QList<QList<CourseInfo>>, nestedValues);
 
-    QList<JsonReadInterface *> prop() override {
+    QList<DataReadInterface *> prop() override {
         return {&name, &room, &courses, &teacher, &students, &types, &nestedValues };
     }
 };

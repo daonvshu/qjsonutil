@@ -5,9 +5,9 @@
 #include <qjsondocument.h>
 #include <qvariant.h>
 
-namespace QJsonUtil {
+namespace QDataUtil {
 
-    struct JsonReadInterface {
+    struct DataReadInterface {
         //读取json的key
         virtual const QString& key() const = 0;
         //value转成QJsonValue
@@ -15,15 +15,15 @@ namespace QJsonUtil {
         //写入值
         virtual void save(const QJsonValue& value) = 0;
         //字符串路由
-        virtual JsonReadInterface* findByRouter(const QStringList& router) = 0;
+        virtual DataReadInterface* findByRouter(const QStringList& router) = 0;
 
-        virtual ~JsonReadInterface() = default;
+        virtual ~DataReadInterface() = default;
     };
 
     template<typename T>
-    struct ConfigKey;
+    struct DataKey;
 
-    struct JsonDumpInterface {
+    struct DataDumpInterface {
 
         //将JsonObject转换为模型字段
         virtual void fromJson(const QJsonObject &jsonObject) {
@@ -44,19 +44,19 @@ namespace QJsonUtil {
         }
 
         //读取模型类所有字段
-        virtual QList<JsonReadInterface*> prop() = 0;
+        virtual QList<DataReadInterface*> prop() = 0;
 
         //通过字符串路由查找模型字段
         template<typename T>
-        ConfigKey<T>* findByRouter(const QString& router);
+        DataKey<T>* findByRouter(const QString& router);
 
-        JsonReadInterface* findByRouter(const QStringList& router);
+        DataReadInterface* findByRouter(const QStringList& router);
 
-        virtual ~JsonDumpInterface() = default;
+        virtual ~DataDumpInterface() = default;
     };
 
     template<typename T>
-    struct JsonIdentity {
+    struct DataIdentity {
         using type = T;
     };
 
@@ -67,19 +67,19 @@ namespace QJsonUtil {
     };
 
     template<typename T>
-    struct ConfigKey : JsonReadInterface {
+    struct DataKey : DataReadInterface {
         //保存json对应的key名称
         QString jsonKey;
         //保存存储的值
         T jsonValue;
 
         //初始化时将key传入
-        explicit ConfigKey(QString key)
+        explicit DataKey(QString key)
                 : jsonKey(std::move(key)), jsonValue(T())
         {}
 
         //赋值
-        ConfigKey& operator=(const T& v) {
+        DataKey& operator=(const T& v) {
             jsonValue = v;
             return *this;
         }
@@ -100,120 +100,120 @@ namespace QJsonUtil {
         }
 
         template<typename K>
-        using ValueType = typename std::conditional<std::is_base_of<JsonDumpInterface, K>::value, JsonDumpInterface, K>::type;
+        using ValueType = typename std::conditional<std::is_base_of<DataDumpInterface, K>::value, DataDumpInterface, K>::type;
 
         //value转QJsonValue
         QJsonValue value() override {
-            return toJsonValue(jsonValue, JsonIdentity<ValueType<T>>());
+            return toJsonValue(jsonValue, DataIdentity<ValueType<T>>());
         }
 
         //保存
         void save(const QJsonValue &value) override {
-            fromJsonValue(jsonValue, value, JsonIdentity<ValueType<T>>());
+            fromJsonValue(jsonValue, value, DataIdentity<ValueType<T>>());
         }
 
         //通过字符串路由判断是否是自己
-        JsonReadInterface* findByRouter(const QStringList& router) override {
-            return findByRouter(router, JsonIdentity<ValueType<T>>());
+        DataReadInterface* findByRouter(const QStringList& router) override {
+            return findByRouter(router, DataIdentity<ValueType<T>>());
         }
 
     private:
         //基础类型转换
         template<typename I, typename K>
-        static QJsonValue toJsonValue(I& value, JsonIdentity<K>) {
+        static QJsonValue toJsonValue(I& value, DataIdentity<K>) {
             return value;
         }
 
         //ConfigKey类型
         template<typename I>
-        static QJsonValue toJsonValue(I& value, JsonIdentity<JsonDumpInterface>) {
-            return dynamic_cast<JsonDumpInterface*>(&value)->dumpToJson();
+        static QJsonValue toJsonValue(I& value, DataIdentity<DataDumpInterface>) {
+            return dynamic_cast<DataDumpInterface*>(&value)->dumpToJson();
         }
 
         //容器类型
         template<typename I, typename K>
-        static QJsonValue toJsonValue(I& value, JsonIdentity<QList<K>>) {
+        static QJsonValue toJsonValue(I& value, DataIdentity<QList<K>>) {
             QJsonArray jsonArray;
             for (auto& v : value) {
-                jsonArray.append(toJsonValue(v, JsonIdentity<ValueType<K>>()));
+                jsonArray.append(toJsonValue(v, DataIdentity<ValueType<K>>()));
             }
             return jsonArray;
         }
 
         //QStringList类型
         template<typename I>
-        static QJsonValue toJsonValue(I& value, JsonIdentity<QStringList>) {
+        static QJsonValue toJsonValue(I& value, DataIdentity<QStringList>) {
             return QJsonArray::fromStringList(value);
         }
 
         //基础类型赋值
         template<typename I, typename K>
-        static void fromJsonValue(I& tagValue, const QJsonValue& value, JsonIdentity<K>) {
+        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<K>) {
             tagValue = value.toVariant().value<K>();
         }
 
         //ConfigKey类型
         template<typename I>
-        static void fromJsonValue(I& tagValue, const QJsonValue& value, JsonIdentity<JsonDumpInterface>) {
-            dynamic_cast<JsonDumpInterface*>(&tagValue)->fromJson(value.toObject());
+        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<DataDumpInterface>) {
+            dynamic_cast<DataDumpInterface*>(&tagValue)->fromJson(value.toObject());
         }
 
         //容器类型
         template<typename I, typename K>
-        static void fromJsonValue(I& tagValue, const QJsonValue& value, JsonIdentity<QList<K>>) {
+        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<QList<K>>) {
             tagValue = QList<K>();
             auto values = value.toArray();
             for (const auto& v : values) {
                 typename IteratorType<QList<K>>::type temp;
-                fromJsonValue(temp, v, JsonIdentity<ValueType<K>>());
+                fromJsonValue(temp, v, DataIdentity<ValueType<K>>());
                 tagValue.append(temp);
             }
         }
 
         template<typename K>
-        JsonReadInterface* findByRouter(const QStringList& router, JsonIdentity<K>) {
+        DataReadInterface* findByRouter(const QStringList& router, DataIdentity<K>) {
             if (router.length() == 1 && router.first() == jsonKey) {
                 return this;
             }
             return nullptr;
         }
 
-        JsonReadInterface* findByRouter(const QStringList& router, JsonIdentity<JsonDumpInterface>) {
-            return dynamic_cast<JsonDumpInterface*>(&jsonValue)->findByRouter(router);
+        DataReadInterface* findByRouter(const QStringList& router, DataIdentity<DataDumpInterface>) {
+            return dynamic_cast<DataDumpInterface*>(&jsonValue)->findByRouter(router);
         }
 
         template<typename K>
-        JsonReadInterface* findByRouter(const QStringList& router, JsonIdentity<QList<K>>) {
-            return findNextRouter(jsonValue, router, JsonIdentity<QList<K>>());
+        DataReadInterface* findByRouter(const QStringList& router, DataIdentity<QList<K>>) {
+            return findNextRouter(jsonValue, router, DataIdentity<QList<K>>());
         }
 
         template<typename K>
-        static JsonReadInterface* readerCaster(typename std::enable_if<std::is_base_of<JsonReadInterface, K>::value, K*>::type value) {
-            return dynamic_cast<JsonReadInterface*>(value);
+        static DataReadInterface* readerCaster(typename std::enable_if<std::is_base_of<DataReadInterface, K>::value, K*>::type value) {
+            return dynamic_cast<DataReadInterface*>(value);
         }
 
         template<typename K>
-        static JsonReadInterface* readerCaster(typename std::enable_if<!std::is_base_of<JsonReadInterface, K>::value, K*>::type) {
+        static DataReadInterface* readerCaster(typename std::enable_if<!std::is_base_of<DataReadInterface, K>::value, K*>::type) {
             return nullptr;
         }
 
         template<typename K>
-        static JsonReadInterface* findNextRouter(typename std::enable_if<std::is_base_of<JsonDumpInterface, K>::value, K>::type& value, const QStringList& router) {
+        static DataReadInterface* findNextRouter(typename std::enable_if<std::is_base_of<DataDumpInterface, K>::value, K>::type& value, const QStringList& router) {
             return value.findByRouter(router);
         }
 
         template<typename K>
-        static JsonReadInterface* findNextRouter(typename std::enable_if<!std::is_base_of<JsonDumpInterface, K>::value, K>::type& value, const QStringList& router) {
-            return findNextRouter(value, router, JsonIdentity<K>());
+        static DataReadInterface* findNextRouter(typename std::enable_if<!std::is_base_of<DataDumpInterface, K>::value, K>::type& value, const QStringList& router) {
+            return findNextRouter(value, router, DataIdentity<K>());
         }
 
         template<typename K>
-        static JsonReadInterface* findNextRouter(K&, const QStringList&, JsonIdentity<K>) {
+        static DataReadInterface* findNextRouter(K&, const QStringList&, DataIdentity<K>) {
             return nullptr;
         }
 
         template<typename K>
-        static JsonReadInterface* findNextRouter(QList<K>& value, const QStringList& router, JsonIdentity<QList<K>>) {
+        static DataReadInterface* findNextRouter(QList<K>& value, const QStringList& router, DataIdentity<QList<K>>) {
             if (router.isEmpty()) {
                 return nullptr;
             }
@@ -236,15 +236,15 @@ namespace QJsonUtil {
     };
 
     template<typename T>
-    inline ConfigKey<T> *JsonDumpInterface::findByRouter(const QString &router) {
+    inline DataKey<T> *DataDumpInterface::findByRouter(const QString &router) {
         auto routerList = router.split(".");
         if (routerList.isEmpty()) {
             return nullptr;
         }
-        return dynamic_cast<ConfigKey<T>*>(findByRouter(routerList));
+        return dynamic_cast<DataKey<T>*>(findByRouter(routerList));
     }
 
-    inline JsonReadInterface *JsonDumpInterface::findByRouter(const QStringList &router) {
+    inline DataReadInterface *DataDumpInterface::findByRouter(const QStringList &router) {
         auto& key = router.first();
         for (auto item : prop()) {
             if (item->key() == key) {
@@ -261,4 +261,4 @@ namespace QJsonUtil {
     }
 }
 
-#define CONFIG_KEY(type, var) QJsonUtil::ConfigKey<type> var{#var}
+#define DATA_KEY(type, var) QDataUtil::DataKey<type> var{#var}
