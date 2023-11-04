@@ -59,4 +59,8 @@ struct Classes : DataDumpInterface {
     QList<DataReadInterface *> prop() override {
         return {&name, &room, &courses, &teacher, &students, &types, &nestedValues };
     }
+
+    QString groupKey() override {
+        return "class";
+    }
 };

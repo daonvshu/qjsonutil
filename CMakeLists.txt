@@ -11,7 +11,7 @@ find_package(Qt5Test REQUIRED)
 enable_testing(true)
 #设置编译源文件
 add_executable(${PROJECT_NAME}
-  qjsonconverttest.cpp
+    dataconverttest.cpp
   )
 add_test(NAME ${PROJECT_NAME} COMMAND ${PROJECT_NAME})
 
