@@ -19,6 +19,8 @@ namespace QDataUtil {
         virtual void save(QXmlStreamReader& value) = 0;
         //存储xml值
         virtual void restore(QXmlStreamWriter& writer) = 0;
+        //存储xml属性
+        virtual void restoreProperty(QXmlStreamWriter& writer) = 0;
 
         //字符串路由
         virtual DataReadInterface* findByRouter(const QStringList& router) = 0;
@@ -26,8 +28,10 @@ namespace QDataUtil {
         virtual ~DataReadInterface() = default;
     };
 
-    template<typename T>
+    template<typename T, typename Property>
     struct DataKey;
+
+    struct DataNonProperty {};
 
     struct DataDumpInterface {
 
@@ -94,8 +98,12 @@ namespace QDataUtil {
         }
 
         //将模型结构体转QXmlStreamWriter
-        virtual void dumpToXml(QXmlStreamWriter& writer, const QString& elementName) {
+        virtual void dumpToXml(QXmlStreamWriter& writer, const QString& elementName,
+                               const std::function<void(QXmlStreamWriter&)>& propertyWriter = nullptr) {
             writer.writeStartElement(elementName);
+            if (propertyWriter) {
+                propertyWriter(writer);
+            }
             for (auto& item : prop()) {
                 item->restore(writer);
             }
@@ -119,8 +127,8 @@ namespace QDataUtil {
         }
 
         //通过字符串路由查找模型字段
-        template<typename T>
-        DataKey<T>* findByRouter(const QString& router);
+        template<typename T, typename Property = DataNonProperty>
+        DataKey<T, Property>* findByRouter(const QString& router);
 
         DataReadInterface* findByRouter(const QStringList& router);
 
@@ -138,12 +146,14 @@ namespace QDataUtil {
         using type = I;
     };
 
-    template<typename T>
+    template<typename T, typename Property = DataNonProperty>
     struct DataKey : DataReadInterface {
-        //保存json对应的key名称
+        //保存data对应的key名称
         QString dataKey;
         //保存存储的值
         T dataValue;
+        //xml对应的属性结构体
+        Property dataProperty;
 
         //初始化时将key传入
         explicit DataKey(QString key)
@@ -186,11 +196,17 @@ namespace QDataUtil {
 
         //存储
         void restore(QXmlStreamWriter &writer) override {
-            toXmlValue(dataKey, dataValue, writer, DataIdentity<ValueType<T>>());
+            toXmlValue(dataKey, dataValue, dataProperty, writer, DataIdentity<ValueType<T>>());
+        }
+
+        //存储属性
+        void restoreProperty(QXmlStreamWriter &writer) override {
+            writeXmlProperty<T>(writer, dataValue);
         }
 
         //保存
         void save(QXmlStreamReader &value) override {
+            fromXmlProperty(dataProperty, value, DataIdentity<ValueType<Property>>());
             fromXmlValue(dataValue, value, DataIdentity<ValueType<T>>());
         }
 
@@ -229,31 +245,71 @@ namespace QDataUtil {
         }
 
         //基础类型转换
-        template<typename I, typename K>
-        static void toXmlValue(const QString& key, I& value, QXmlStreamWriter &writer, DataIdentity<K>) {
-            writer.writeTextElement(key, QVariant(value).toString());
+        template<typename I, typename P, typename K>
+        static void toXmlValue(const QString& key, I& value, P& prop, QXmlStreamWriter &writer, DataIdentity<K>) {
+            writer.writeStartElement(key);
+            toXmlProperty(prop, writer, DataIdentity<ValueType<P>>());
+            writer.writeCharacters(QVariant(value).toString());
+            writer.writeEndElement();
         }
 
         //DataKey类型
-        template<typename I>
-        static void toXmlValue(const QString& key, I& value, QXmlStreamWriter &writer, DataIdentity<DataDumpInterface>) {
-            dynamic_cast<DataDumpInterface*>(&value)->dumpToXml(writer, key);
+        template<typename I, typename P>
+        static void toXmlValue(const QString& key, I& value, P& prop, QXmlStreamWriter &writer, DataIdentity<DataDumpInterface>) {
+            dynamic_cast<DataDumpInterface*>(&value)->dumpToXml(writer, key, [&] (QXmlStreamWriter& w) {
+                toXmlProperty(prop, w, DataIdentity<ValueType<P>>());
+            });
         }
 
         //容器类型
-        template<typename I, typename K>
-        static void toXmlValue(const QString& key, I& value, QXmlStreamWriter &writer, DataIdentity<QList<K>>) {
-            for (auto& v : value) {
-                toXmlValue(key, v, writer, DataIdentity<ValueType<K>>());
+        template<typename I, typename P, typename K>
+        static void toXmlValue(const QString& key, I& value, P& prop, QXmlStreamWriter &writer, DataIdentity<QList<K>>) {
+            for (int i = 0; i < value.size(); i++) {
+                toXmlValue(key, value[i], getXmlPropertyFromList(prop, i, DataIdentity<ValueType<P>>()), writer, DataIdentity<ValueType<K>>());
             }
         }
 
         //QStringList类型
-        template<typename I>
-        static void toXmlValue(const QString& key, I& value, QXmlStreamWriter &writer, DataIdentity<QStringList>) {
-            for (auto& v : value) {
-                writer.writeTextElement(key, v);
+        template<typename I, typename P>
+        static void toXmlValue(const QString& key, I& value, P& prop, QXmlStreamWriter &writer, DataIdentity<QStringList>) {
+            for (int i = 0; i < value.size(); i++) {
+                writer.writeStartElement(key);
+                toXmlProperty(getXmlPropertyFromList(prop, i, DataIdentity<ValueType<P>>()), writer, DataIdentity<P>());
+                writer.writeCharacters(QVariant(value[i]).toString());
+                writer.writeEndElement();
             }
+        }
+
+        template<typename P>
+        static P& getXmlPropertyFromList(P& prop, int, DataIdentity<P>) {
+            return prop;
+        }
+
+        template<typename K>
+        static K& getXmlPropertyFromList(QList<K>& prop, int index, DataIdentity<QList<K>>) {
+            return prop[index];
+        }
+
+        //基础类型转换
+        template<typename I, typename K>
+        static void toXmlProperty(I&, QXmlStreamWriter&, DataIdentity<K>) {
+        }
+
+        //DataKey类型
+        template<typename I>
+        static void toXmlProperty(I& value, QXmlStreamWriter &writer, DataIdentity<DataDumpInterface>) {
+            for (auto& item : value.prop()) {
+                item->restoreProperty(writer);
+            }
+        }
+
+        template<typename K>
+        void writeXmlProperty(QXmlStreamWriter& writer, const typename std::enable_if<std::is_constructible<QVariant, K>::value, K>::type& v) {
+            writer.writeAttribute(dataKey, QVariant(v).toString());
+        }
+
+        template<typename K>
+        void writeXmlProperty(QXmlStreamWriter&, const typename std::enable_if<!std::is_constructible<QVariant, K>::value, K>::type& v) {
         }
 
         //基础类型赋值
@@ -311,6 +367,31 @@ namespace QDataUtil {
         template<typename I>
         static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<QStringList>) {
             fromXmlValue(tagValue, value, DataIdentity<QList<QString>>());
+        }
+
+        template<typename I, typename K>
+        static void fromXmlProperty(I&, QXmlStreamReader&, DataIdentity<K>) {
+        }
+
+        template<typename I>
+        static void fromXmlProperty(I& value, QXmlStreamReader &reader, DataIdentity<DataDumpInterface>) {
+            QHash<QString, DataReadInterface*> infMap;
+            for (auto& item : value.prop()) {
+                infMap.insert(item->key(), item);
+            }
+            for (const auto& attribute : reader.attributes()) {
+                QString key = attribute.name().toString();
+                if (infMap.contains(key)) {
+                    infMap[key]->save(QJsonValue::fromVariant(QVariant(attribute.value().toString())));
+                }
+            }
+        }
+
+        template<typename I, typename K>
+        static void fromXmlProperty(I& value, QXmlStreamReader& reader, DataIdentity<QList<K>>) {
+            typename DataIteratorType<QList<K>>::type temp;
+            fromXmlProperty(temp, reader, DataIdentity<ValueType<K>>());
+            value.append(temp);
         }
 
         template<typename K>
@@ -378,13 +459,13 @@ namespace QDataUtil {
         }
     };
 
-    template<typename T>
-    inline DataKey<T> *DataDumpInterface::findByRouter(const QString &router) {
+    template<typename T, typename Property>
+    inline DataKey<T, Property> *DataDumpInterface::findByRouter(const QString &router) {
         auto routerList = router.split(".");
         if (routerList.isEmpty()) {
             return nullptr;
         }
-        return dynamic_cast<DataKey<T>*>(findByRouter(routerList));
+        return dynamic_cast<DataKey<T, Property>*>(findByRouter(routerList));
     }
 
     inline DataReadInterface *DataDumpInterface::findByRouter(const QStringList &router) {
@@ -404,4 +485,4 @@ namespace QDataUtil {
     }
 }
 
-#define DATA_KEY(type, var) QDataUtil::DataKey<type> var{#var}
+#define DATA_KEY(type, var, ...) QDataUtil::DataKey<type, __VA_ARGS__> var{#var}

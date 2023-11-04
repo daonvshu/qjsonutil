@@ -69,13 +69,13 @@ private slots:
             classes.teacher().score = 98.1;
 
             //read by string
-            DataKey<int>* room = classes.findByRouter<int>("room");
+            DataKey<int, TestProperty>* room = classes.findByRouter<int, TestProperty>("room");
             QCOMPARE((*room)(), 1);
 
             DataKey<QString>* teacherName = classes.findByRouter<QString>("teacher.name");
             QCOMPARE((*teacherName)(), "Tony");
 
-            DataKey<QList<Student>>* students = classes.findByRouter<QList<Student>>("students");
+            DataKey<QList<Student>, QList<TestProperty>>* students = classes.findByRouter<QList<Student>, QList<TestProperty>>("students");
             QCOMPARE((*students)().size(), 2);
 
             DataKey<int>* aliceAge = classes.findByRouter<int>("students.0.age");
@@ -93,7 +93,7 @@ private slots:
         const QByteArray xmlStr = R"(<?xml version="1.0" encoding="UTF-8"?>
 <class>
     <name>class1</name>
-    <room>1</room>
+    <room lang="en" type="room" value="1">1</room>
     <courses>math</courses>
     <courses>english</courses>
     <courses>physics</courses>
@@ -106,14 +106,14 @@ private slots:
         <name>Tony</name>
         <score>99.9</score>
     </teacher>
-    <students>
+    <students lang="en" type="student1" value="2">
         <name>Alice</name>
         <age>12</age>
         <score_avg>90.4</score_avg>
         <adept>math</adept>
         <adept>english</adept>
     </students>
-    <students>
+    <students lang="en" type="student2" value="3">
         <name>Bob</name>
         <age>13</age>
         <score_avg>86.1</score_avg>
@@ -127,9 +127,11 @@ private slots:
             Classes classes;
             classes.fromXml(reader);
 
-            QByteArray writeBuff;
-            QXmlStreamWriter writer(&writeBuff);
+            QFile file("xml_buff.xml");
+            file.open(QIODevice::WriteOnly | QIODevice::Truncate);
+            QXmlStreamWriter writer(&file);
             classes.dumpToXml(writer, true);
+            file.close();
 
             //read
             auto aliceName = classes.students().first().name();
@@ -143,13 +145,14 @@ private slots:
             classes.teacher().score = 98.1;
 
             //read by string
-            DataKey<int>* room = classes.findByRouter<int>("room");
+            DataKey<int, TestProperty>* room = classes.findByRouter<int, TestProperty>("room");
             QCOMPARE((*room)(), 1);
+            QCOMPARE(room->dataProperty.type(), "room");
 
             DataKey<QString>* teacherName = classes.findByRouter<QString>("teacher.name");
             QCOMPARE((*teacherName)(), "Tony");
 
-            DataKey<QList<Student>>* students = classes.findByRouter<QList<Student>>("students");
+            DataKey<QList<Student>, QList<TestProperty>>* students = classes.findByRouter<QList<Student>, QList<TestProperty>>("students");
             QCOMPARE((*students)().size(), 2);
 
             DataKey<int>* aliceAge = classes.findByRouter<int>("students.0.age");

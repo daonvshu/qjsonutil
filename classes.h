@@ -2,6 +2,19 @@
 
 using namespace QDataUtil;
 
+struct TestProperty : DataDumpInterface {
+
+    DATA_KEY(QString, lang);
+
+    DATA_KEY(QString, type);
+
+    DATA_KEY(int, value);
+
+    QList<DataReadInterface *> prop() override {
+        return { &lang, &type, &value };
+    }
+};
+
 struct Student : DataDumpInterface {
 
     DATA_KEY(QString, name);
@@ -44,13 +57,13 @@ struct Classes : DataDumpInterface {
 
     DATA_KEY(QString, name);
 
-    DATA_KEY(int, room);
+    DATA_KEY(int, room, TestProperty);
 
     DATA_KEY(QStringList, courses);
 
     DATA_KEY(Teacher, teacher);
 
-    DATA_KEY(QList<Student>, students);
+    DATA_KEY(QList<Student>, students, QList<TestProperty>);
 
     DATA_KEY(QList<int>, types);
 
