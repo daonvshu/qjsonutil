@@ -496,4 +496,4 @@ namespace QDataUtil {
     }
 }
 
-#define DATA_KEY(type, var, ...) QDataUtil::DataKey<type, __VA_ARGS__> var{#var}
+#define DATA_KEY(type, var, ...) QDataUtil::DataKey<type, ##__VA_ARGS__> var{#var}
