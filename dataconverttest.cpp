@@ -55,6 +55,8 @@ private slots:
             Classes classes;
             classes.fromJson(object);
 
+            constDumpFunction(classes);
+
             //classes.name = classes.name2;
 
             auto json = classes.dumpToJson();
@@ -167,6 +169,10 @@ private slots:
             //DataKey<QString>* nestedValue = classes.findByRouter<QString>("nestedValues.0.0.name");
             //QCOMPARE((*nestedValue)(), "math");
         }
+    }
+
+    static QJsonObject constDumpFunction(const Classes& classes) {
+        return classes.dumpToJson();
     }
 };
 

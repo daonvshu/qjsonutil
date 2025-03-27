@@ -45,9 +45,9 @@ namespace QDataUtil {
         }
 
         //将模型结构体转JsonObject
-        virtual QJsonObject dumpToJson() {
+        virtual QJsonObject dumpToJson() const {
             QJsonObject jsonObject;
-            for (const auto& item : prop()) {
+            for (const auto& item : constProp()) {
                 jsonObject.insert(item->key(), item->value());
             }
             return jsonObject;
@@ -99,38 +99,46 @@ namespace QDataUtil {
 
         //将模型结构体转QXmlStreamWriter
         virtual void dumpToXml(QXmlStreamWriter& writer, const QString& elementName,
-                               const std::function<void(QXmlStreamWriter&)>& propertyWriter = nullptr) {
+                               const std::function<void(QXmlStreamWriter&)>& propertyWriter = nullptr) const {
             writer.writeStartElement(elementName);
             if (propertyWriter) {
                 propertyWriter(writer);
             }
-            for (auto& item : prop()) {
+            for (auto& item : constProp()) {
                 item->restore(writer);
             }
             writer.writeEndElement();
         }
 
         //将模型结构体转QXmlStreamWriter
-        virtual void dumpToXml(QXmlStreamWriter& writer, bool autoFormat) {
+        virtual void dumpToXml(QXmlStreamWriter& writer, bool autoFormat) const {
             writer.setAutoFormatting(autoFormat);
             writer.writeStartDocument();
-            dumpToXml(writer, groupKey());
+            dumpToXml(writer, constGroupKey());
             writer.writeEndDocument();
         }
 
         //读取模型类所有字段
         virtual QList<DataReadInterface*> prop() = 0;
 
+        QList<DataReadInterface*> constProp() const {
+            return const_cast<DataDumpInterface*>(this)->prop();
+        }
+
         //顶层xml标签
         virtual QString groupKey() {
             return {};
         }
 
+        QString constGroupKey() const {
+            return const_cast<DataDumpInterface*>(this)->groupKey();
+        }
+
         //通过字符串路由查找模型字段
         template<typename T, typename Property = DataNonProperty>
-        DataKey<T, Property>* findByRouter(const QString& router);
+        DataKey<T, Property>* findByRouter(const QString& router) const;
 
-        DataReadInterface* findByRouter(const QStringList& router);
+        DataReadInterface* findByRouter(const QStringList& router) const;
 
         virtual ~DataDumpInterface() = default;
     };
@@ -463,7 +471,7 @@ namespace QDataUtil {
     };
 
     template<typename T, typename Property>
-    inline DataKey<T, Property> *DataDumpInterface::findByRouter(const QString &router) {
+    inline DataKey<T, Property> *DataDumpInterface::findByRouter(const QString &router) const {
         auto routerList = router.split(".");
         if (routerList.isEmpty()) {
             return nullptr;
@@ -471,9 +479,9 @@ namespace QDataUtil {
         return dynamic_cast<DataKey<T, Property>*>(findByRouter(routerList));
     }
 
-    inline DataReadInterface *DataDumpInterface::findByRouter(const QStringList &router) {
+    inline DataReadInterface *DataDumpInterface::findByRouter(const QStringList &router) const {
         auto& key = router.first();
-        for (auto item : prop()) {
+        for (auto item : constProp()) {
             if (item->key() == key) {
                 if (router.size() == 1) {
                     return item;
