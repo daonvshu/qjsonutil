@@ -15,6 +15,20 @@ private slots:
     "room": 1,
     "courses": ["math", "english", "physics", "chemistry", "biology"],
     "types": [0, 1, 2],
+    "customObj": {
+        "name": "customObjValue",
+        "value": 10
+    },
+    "customObj2": {
+        "name": "customObj2Value",
+        "value": 20
+    },
+    "customObj3": [
+        {
+            "name": "customObj3Value",
+            "value": 30
+        }
+    ],
     "nestedValues": [
         [
             {
@@ -60,7 +74,20 @@ private slots:
             //classes.name = classes.name2;
 
             auto json = classes.dumpToJson();
-            QCOMPARE(QJsonDocument(json).toJson(), doc.toJson());
+            auto dumpStr = QJsonDocument(json).toJson();
+            QCOMPARE(dumpStr, doc.toJson());
+
+            auto customObjStr = QJsonDocument(classes.customObj().toObject()).toJson();
+            QVERIFY(!customObjStr.isEmpty());
+            QCOMPARE(classes.customObj(), object.value("customObj").toObject());
+
+            customObjStr = QJsonDocument(classes.customObj2()).toJson();
+            QVERIFY(!customObjStr.isEmpty());
+            QCOMPARE(classes.customObj2(), object.value("customObj2").toObject());
+
+            customObjStr = QJsonDocument(classes.customObj3()).toJson();
+            QVERIFY(!customObjStr.isEmpty());
+            QCOMPARE(classes.customObj3(), object.value("customObj3").toArray());
 
             //read
             auto aliceName = classes.students().first().name();

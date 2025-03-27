@@ -71,8 +71,14 @@ struct Classes : DataDumpInterface {
 
     DATA_KEY(QList<QList<CourseInfo>>, nestedValues);
 
+    DATA_KEY(QJsonValue, customObj);
+
+    DATA_KEY(QJsonObject, customObj2);
+
+    DATA_KEY(QJsonArray, customObj3);
+
     QList<DataReadInterface *> prop() override {
-        return {&name, &name2, &room, &courses, &teacher, &students, &types, &nestedValues };
+        return {&name, &name2, &room, &courses, &teacher, &students, &types, &nestedValues, &customObj, &customObj2, &customObj3 };
     }
 
     QString groupKey() override {
