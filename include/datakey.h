@@ -5,6 +5,7 @@
 #include <qjsondocument.h>
 #include <qxmlstream.h>
 #include <qvariant.h>
+#include <qdebug.h>
 
 namespace QDataUtil {
 
@@ -14,9 +15,9 @@ namespace QDataUtil {
         //value转成QJsonValue
         virtual QJsonValue value() = 0;
         //写入json值
-        virtual void save(const QJsonValue& value) = 0;
+        virtual void save(const QJsonValue& value, bool keyVerify) = 0;
         //写入xml值
-        virtual void save(QXmlStreamReader& value) = 0;
+        virtual void save(QXmlStreamReader& value, bool keyVerify) = 0;
         //存储xml值
         virtual void restore(QXmlStreamWriter& writer) = 0;
         //存储xml属性
@@ -36,11 +37,37 @@ namespace QDataUtil {
     struct DataDumpInterface {
 
         //将JsonObject转换为模型字段
-        virtual void fromJson(const QJsonObject &jsonObject) {
+        virtual void fromJson(const QJsonObject &jsonObject, bool keyVerify = true) {
+            auto objKeys = jsonObject.keys();
             for (const auto& item : prop()) {
-                if (jsonObject.contains(item->key())) {
-                    item->save(jsonObject.value(item->key()));
+                if (keyVerify) {
+#ifdef QT_DEBUG
+                    // not found the key in source data
+                    Q_ASSERT(jsonObject.contains(item->key())); //check all props in object keys
+                    objKeys.removeOne(item->key());
+#else
+                    if (!jsonObject.contains(item->key())) {
+                        qWarning() << "[QDataUtil] not found the key" << item->key() << "in source data!";
+                        continue;
+                    }
+                    objKeys.removeOne(item->key());
+#endif
+                } else {
+                    if (!jsonObject.contains(item->key())) {
+                        continue;
+                    }
                 }
+                item->save(jsonObject.value(item->key()), keyVerify);
+            }
+            if (keyVerify) {
+#ifdef QT_DEBUG
+                // forget add all fields in function 'prop()' ?
+                Q_ASSERT(objKeys.isEmpty()); //check all object keys used in props
+#else
+                if (!objKeys.isEmpty()) {
+                    qWarning() << "[QDataUtil] forget add field in function 'prop()' ? the fields:" << objKeys;
+                }
+#endif
             }
         }
 
@@ -54,7 +81,7 @@ namespace QDataUtil {
         }
 
         //将QXmlStreamReader转换为模型字段
-        virtual void fromXmlReader(QXmlStreamReader &reader) {
+        virtual void fromXmlReader(QXmlStreamReader &reader, bool keyVerify = true) {
             QHash<QString, DataReadInterface*> infMap;
             for (auto& item : prop()) {
                 infMap.insert(item->key(), item);
@@ -65,8 +92,22 @@ namespace QDataUtil {
                 if (reader.isStartElement()) {
                     depth++;
                     auto key = reader.name().toString();
-                    if (infMap.contains(key)) {
-                        infMap[key]->save(reader);
+                    if (keyVerify) {
+#ifdef QT_DEBUG
+                        // forget add all fields in function 'prop()' ?
+                        Q_ASSERT(infMap.contains(key)); //check all object keys in props
+                        infMap.take(key)->save(reader, keyVerify);
+#else
+                        if (infMap.contains(key)) {
+                            infMap[key]->save(reader, keyVerify);
+                        } else {
+                            qWarning() << "[QDataUtil] forget add field in function 'prop()' ? the field:" << key;
+                        }
+#endif
+                    } else {
+                        if (infMap.contains(key)) {
+                            infMap[key]->save(reader, keyVerify);
+                        }
                     }
                     reader.readNext();
                 } else if (reader.isEndElement()) {
@@ -78,16 +119,26 @@ namespace QDataUtil {
                     reader.readNext();
                 }
             }
+            if (keyVerify) {
+#ifdef QT_DEBUG
+                // not found keys in source data
+                Q_ASSERT(infMap.isEmpty()); //check all props used in object keys
+#else
+                if (!infMap.isEmpty()) {
+                    qWarning() << "[QDataUtil] not found keys in source data! the keys:" << infMap.keys();
+                }
+#endif
+            }
         }
 
         //将QXmlStreamReader转换为模型字段
-        virtual void fromXml(QXmlStreamReader &reader) {
+        virtual void fromXml(QXmlStreamReader &reader, bool keyVerify = true) {
             reader.readNext();
             while (!reader.atEnd()) {
                 if (reader.isStartElement()) {
                     auto key = reader.name().toString().toLower();
                     if (key == groupKey().toLower()) {
-                        fromXmlReader(reader);
+                        fromXmlReader(reader, keyVerify);
                     } else { //is not group begin
                         break;
                     }
@@ -201,8 +252,8 @@ namespace QDataUtil {
         }
         
         //保存
-        void save(const QJsonValue &value) override {
-            fromJsonValue(dataValue, value, DataIdentity<ValueType<T>>());
+        void save(const QJsonValue &value, bool keyVerify) override {
+            fromJsonValue(dataValue, value, DataIdentity<ValueType<T>>(), keyVerify);
         }
 
         //存储
@@ -216,9 +267,9 @@ namespace QDataUtil {
         }
 
         //保存
-        void save(QXmlStreamReader &value) override {
-            fromXmlProperty(dataProperty, value, DataIdentity<ValueType<Property>>());
-            fromXmlValue(dataValue, value, DataIdentity<ValueType<T>>());
+        void save(QXmlStreamReader &value, bool keyVerify) override {
+            fromXmlProperty(dataProperty, value, DataIdentity<ValueType<Property>>(), keyVerify);
+            fromXmlValue(dataValue, value, DataIdentity<ValueType<T>>(), keyVerify);
         }
 
         //通过字符串路由判断是否是自己
@@ -325,47 +376,47 @@ namespace QDataUtil {
 
         //基础类型赋值
         template<typename I, typename K>
-        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<K>) {
+        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<K>, bool) {
             tagValue = value.toVariant().value<K>();
         }
 
         //DataKey类型
         template<typename I>
-        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<DataDumpInterface>) {
-            dynamic_cast<DataDumpInterface*>(&tagValue)->fromJson(value.toObject());
+        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<DataDumpInterface>, bool keyVerify) {
+            dynamic_cast<DataDumpInterface*>(&tagValue)->fromJson(value.toObject(), keyVerify);
         }
 
         //容器类型
         template<typename I, typename K>
-        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<QList<K>>) {
+        static void fromJsonValue(I& tagValue, const QJsonValue& value, DataIdentity<QList<K>>, bool keyVerify) {
             tagValue = QList<K>();
             auto values = value.toArray();
             for (const auto& v : values) {
                 typename DataIteratorType<QList<K>>::type temp;
-                fromJsonValue(temp, v, DataIdentity<ValueType<K>>());
+                fromJsonValue(temp, v, DataIdentity<ValueType<K>>(), keyVerify);
                 tagValue.append(temp);
             }
         }
 
         //基础类型赋值
         template<typename I, typename K>
-        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<K>) {
+        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<K>, bool) {
             tagValue = QVariant(value.readElementText()).value<K>();
         }
 
         //DataKey类型
         template<typename I>
-        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<DataDumpInterface>) {
-            dynamic_cast<DataDumpInterface*>(&tagValue)->fromXmlReader(value);
+        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<DataDumpInterface>, bool keyVerify) {
+            dynamic_cast<DataDumpInterface*>(&tagValue)->fromXmlReader(value, keyVerify);
         }
 
         //容器类型
         template<typename I, typename K>
-        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<QList<K>>) {
+        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<QList<K>>, bool keyVerify) {
             while (!value.atEnd()) {
                 if (value.isStartElement()) {
                     typename DataIteratorType<QList<K>>::type temp;
-                    fromXmlValue(temp, value, DataIdentity<ValueType<K>>());
+                    fromXmlValue(temp, value, DataIdentity<ValueType<K>>(), keyVerify);
                     tagValue.append(temp);
                 } else if (value.isEndElement()) {
                     break;
@@ -376,16 +427,16 @@ namespace QDataUtil {
         }
 
         template<typename I>
-        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<QStringList>) {
-            fromXmlValue(tagValue, value, DataIdentity<QList<QString>>());
+        static void fromXmlValue(I& tagValue, QXmlStreamReader &value, DataIdentity<QStringList>, bool keyVerify) {
+            fromXmlValue(tagValue, value, DataIdentity<QList<QString>>(), keyVerify);
         }
 
         template<typename I, typename K>
-        static void fromXmlProperty(I&, QXmlStreamReader&, DataIdentity<K>) {
+        static void fromXmlProperty(I&, QXmlStreamReader&, DataIdentity<K>, bool) {
         }
 
         template<typename I>
-        static void fromXmlProperty(I& value, QXmlStreamReader &reader, DataIdentity<DataDumpInterface>) {
+        static void fromXmlProperty(I& value, QXmlStreamReader &reader, DataIdentity<DataDumpInterface>, bool keyVerify) {
             QHash<QString, DataReadInterface*> infMap;
             for (auto& item : value.prop()) {
                 infMap.insert(item->key(), item);
@@ -393,15 +444,15 @@ namespace QDataUtil {
             for (const auto& attribute : reader.attributes()) {
                 QString key = attribute.name().toString();
                 if (infMap.contains(key)) {
-                    infMap[key]->save(QJsonValue::fromVariant(QVariant(attribute.value().toString())));
+                    infMap[key]->save(QJsonValue::fromVariant(QVariant(attribute.value().toString())), keyVerify);
                 }
             }
         }
 
         template<typename I, typename K>
-        static void fromXmlProperty(I& value, QXmlStreamReader& reader, DataIdentity<QList<K>>) {
+        static void fromXmlProperty(I& value, QXmlStreamReader& reader, DataIdentity<QList<K>>, bool keyVerify) {
             typename DataIteratorType<QList<K>>::type temp;
-            fromXmlProperty(temp, reader, DataIdentity<ValueType<K>>());
+            fromXmlProperty(temp, reader, DataIdentity<ValueType<K>>(), keyVerify);
             value.append(temp);
         }
 

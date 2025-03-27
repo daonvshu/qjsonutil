@@ -157,7 +157,7 @@ private slots:
         QXmlStreamReader reader(xmlStr);
         {
             Classes classes;
-            classes.fromXml(reader);
+            classes.fromXml(reader, false);
 
             QFile file("xml_buff.xml");
             file.open(QIODevice::WriteOnly | QIODevice::Truncate);
