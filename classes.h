@@ -57,6 +57,8 @@ struct Classes : DataDumpInterface {
 
     DATA_KEY(QString, name);
 
+    DATA_KEY(QString, name2);
+
     DATA_KEY(int, room, TestProperty);
 
     DATA_KEY(QStringList, courses);
@@ -70,7 +72,7 @@ struct Classes : DataDumpInterface {
     DATA_KEY(QList<QList<CourseInfo>>, nestedValues);
 
     QList<DataReadInterface *> prop() override {
-        return {&name, &room, &courses, &teacher, &students, &types, &nestedValues };
+        return {&name, &name2, &room, &courses, &teacher, &students, &types, &nestedValues };
     }
 
     QString groupKey() override {

@@ -160,6 +160,9 @@ namespace QDataUtil {
                 : dataKey(std::move(key)), dataValue(T())
         {}
 
+        //禁用对象拷贝
+        DataKey& operator=(DataKey<T>&) = delete;
+
         //赋值
         DataKey& operator=(const T& v) {
             dataValue = v;

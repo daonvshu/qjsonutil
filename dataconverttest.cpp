@@ -11,6 +11,7 @@ private slots:
         const QByteArray jsonStr = R"(
 {
     "name": "class1",
+    "name2": "class2",
     "room": 1,
     "courses": ["math", "english", "physics", "chemistry", "biology"],
     "types": [0, 1, 2],
@@ -53,6 +54,8 @@ private slots:
 
             Classes classes;
             classes.fromJson(object);
+
+            //classes.name = classes.name2;
 
             auto json = classes.dumpToJson();
             QCOMPARE(QJsonDocument(json).toJson(), doc.toJson());
