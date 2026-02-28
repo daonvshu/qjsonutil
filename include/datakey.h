@@ -14,6 +14,8 @@ namespace QDataUtil {
         virtual const QString& key() const = 0;
         //value转成QJsonValue
         virtual QJsonValue value() = 0;
+        //是否可选
+        virtual bool isOptional() const = 0;
         //写入json值
         virtual void save(const QJsonValue& value, bool keyVerify) = 0;
         //写入xml值
@@ -40,7 +42,7 @@ namespace QDataUtil {
         virtual void fromJson(const QJsonObject &jsonObject, bool keyVerify = true) {
             auto objKeys = jsonObject.keys();
             for (const auto& item : prop()) {
-                if (keyVerify) {
+                if (keyVerify && !item->isOptional()) {
 #ifdef QT_DEBUG
                     // not found the key in source data
                     Q_ASSERT(jsonObject.contains(item->key())); //check all props in object keys
@@ -56,6 +58,7 @@ namespace QDataUtil {
                     if (!jsonObject.contains(item->key())) {
                         continue;
                     }
+                    objKeys.removeOne(item->key());
                 }
                 item->save(jsonObject.value(item->key()), keyVerify);
             }
@@ -71,6 +74,13 @@ namespace QDataUtil {
             }
         }
 
+        //将QJsonArray转换为模型字段
+        virtual void fromArray(const QJsonArray &jsonArray, bool keyVerify = true) {
+            for (const auto& item : prop()) {
+                item->save(jsonArray, keyVerify);
+            }
+        }
+
         //将模型结构体转JsonObject
         virtual QJsonObject dumpToJson() const {
             QJsonObject jsonObject;
@@ -78,6 +88,22 @@ namespace QDataUtil {
                 jsonObject.insert(item->key(), item->value());
             }
             return jsonObject;
+        }
+
+        //将模型结构体转QJsonArray
+        virtual QJsonArray dumpToArray() const {
+            QJsonArray jsonArray;
+            for (const auto& item : constProp()) {
+                auto values = item->value();
+                if (values.isArray()) {
+                    for (const auto& v : values.toArray()) {
+                        jsonArray.append(v);
+                    }
+                } else {
+                    jsonArray.append(values);
+                }
+            }
+            return jsonArray;
         }
 
         //将QXmlStreamReader转换为模型字段
@@ -122,7 +148,9 @@ namespace QDataUtil {
             if (keyVerify) {
 #ifdef QT_DEBUG
                 // not found keys in source data
-                Q_ASSERT(infMap.isEmpty()); //check all props used in object keys
+                for (auto& unused : infMap) {
+                    Q_ASSERT(unused->isOptional()); //check all props used in object keys
+                }
 #else
                 if (!infMap.isEmpty()) {
                     qWarning() << "[QDataUtil] not found keys in source data! the keys:" << infMap.keys();
@@ -213,10 +241,12 @@ namespace QDataUtil {
         T dataValue;
         //xml对应的属性结构体
         Property dataProperty;
+        //字段是否可选
+        bool optional;
 
         //初始化时将key传入
-        explicit DataKey(QString key)
-                : dataKey(std::move(key)), dataValue(T())
+        explicit DataKey(QString key, bool optional = false)
+                : dataKey(std::move(key)), dataValue(T()), optional(optional)
         {}
 
         //禁用对象拷贝
@@ -250,7 +280,12 @@ namespace QDataUtil {
         QJsonValue value() override {
             return toJsonValue(dataValue, DataIdentity<ValueType<T>>());
         }
-        
+
+        //是否可选
+        bool isOptional() const override {
+            return optional;
+        }
+
         //保存
         void save(const QJsonValue &value, bool keyVerify) override {
             fromJsonValue(dataValue, value, DataIdentity<ValueType<T>>(), keyVerify);
@@ -548,3 +583,4 @@ namespace QDataUtil {
 }
 
 #define DATA_KEY(type, var, ...) QDataUtil::DataKey<type, ##__VA_ARGS__> var{#var}
+#define DATA_KEY_OPT(type, var, ...) QDataUtil::DataKey<type, ##__VA_ARGS__> var{#var, true}
